@@ -70,14 +70,18 @@ uint16_t statem[2] = {};
 float freq = 1;
 uint16_t ufreq = 10;
 uint16_t count = 0;
+uint16_t dcount = 0;
 float sintime = 1.5/(2*M_PI*4096);
 uint16_t m2 = 0;
 uint8_t DACConfig = 0b0011;
 uint16_t sinstart = 0;
 uint16_t sinstop = 0;
 uint16_t Mode = 0;
+uint16_t Hz = 0;
+uint16_t duty = 50;
+uint16_t on = 1;
 float x = 1;
-float y= 4000;
+float y= 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -159,7 +163,9 @@ int main(void)
 			  StateMenuNo_2 = 300,
 			  StateNo_2 = 310,
 			  StateMenuNo_3 = 500,
-			  StateNo_3 = 510
+			  StateNo_3 = 510,
+			  StateDutyP = 520,
+			  StateDuty = 530
 	};
   /* USER CODE END 2 */
 
@@ -180,7 +186,7 @@ int main(void)
 		if(inputchar!=-1)
 		{
 			sprintf(TxDataBuffer, "In:[%c]\r\n", inputchar);
-				  	  	HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+			HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
 		}
 		switch(STATE_Display){
 		case StateDisplay_start://0
@@ -188,23 +194,23 @@ int main(void)
 			HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
 		  	STATE_Display = StateMode;
 		  	break;
-		case StateMode:
+		case StateMode://10
 			switch(inputchar){
 			case -1:
 				break;
 			case '1':
 				count = 0;
-				STATE_Display = StateMenuNo_1;
+				STATE_Display = StateMenuNo_1;//20
 				Mode = 1;
 				break;
 			case '2':
 				count = 0;
-				STATE_Display = StateMenuNo_2;
+				STATE_Display = StateMenuNo_2;//300
 				Mode = 2;
 				break;
 			case '3':
 				count = 0;
-				STATE_Display = StateMenuNo_3;
+				STATE_Display = StateMenuNo_3;//500
 				Mode = 3;
 				break;
 			default:
@@ -212,56 +218,57 @@ int main(void)
 				  if(count==2)
 				  {
 					  count=0;
-					  STATE_Display = StateDisplay_start;
+					  STATE_Display = StateDisplay_start;//0
 				  }
 			}
 			break;
-		case StateMenuNo_1:
-			  sprintf(TxDataBuffer,"sawtooth\r\n[f]:frequency\r\n[v]:Vhigh,Vlow\r\n[s]:slope\r\n[x]:back\r\n");
+		case StateMenuNo_1://20
+			  sprintf(TxDataBuffer,"sawtooth\r\n[f]:frequency\r\n[v]:Vhigh,Vlow\r\n[s]:slope\r\n[x]:x\r\n");
 			  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
-			  STATE_Display = StateNo_1;
+			  STATE_Display = StateNo_1;//30
 			  break;
-		case StateNo_1:
+		case StateNo_1://30
 			switch(inputchar){
 			case -1:
 				break;
 			case 'f':
 				count = 0;
-				STATE_Display = StateNo_1FP;
+				STATE_Display = StateNo_1FP;//40
 				break;
 			case 'v':
 				count = 0;
-				STATE_Display = StateNo_1VP;
+				STATE_Display = StateNo_1VP;//60
 				break;
 			case 's':
 				count = 0;
-				STATE_Display = StateNo_1SP;
+				STATE_Display = StateNo_1SP;//200
 				break;
 			case 'x':
 				count =0;
-				STATE_Display = StateDisplay_start;
+				STATE_Display = StateDisplay_start;//0
 				break;
 			default:
 				count+=1;
 				if(count==2){
 					count = 0;
-					STATE_Display = StateMenuNo_1;
+					STATE_Display = StateMenuNo_1;//20
 				}
 			}break;
-		case StateNo_1FP:
-			  sprintf(TxDataBuffer,"frequency\r\n[+]:+0.1Hz\r\n[-]:-0.1Hz\r\n[x]:back\r\n");
+		case StateNo_1FP://40
+			  sprintf(TxDataBuffer,"frequency\r\n[+]:+0.1Hz\r\n[-]:-0.1Hz\r\n[x]:x\r\n");
 			  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
-			  STATE_Display = StateNo_1F;
+			  STATE_Display = StateNo_1F;//50
 			  break;
-		case StateNo_1F:
+		case StateNo_1F://50
 					switch(inputchar){
 					case -1:
 						break;
 			case '+':
+				Hz = 0;
 				count+=1;
 				if(count==2){
 					count = 0;
-					STATE_Display = StateNo_1FP;
+					STATE_Display = StateNo_1FP;//40
 				}
 				if(ufreq<=99){
 				ufreq+=1;
@@ -273,64 +280,75 @@ int main(void)
 				count+=1;
 				if(count==2){
 					count = 0;
-					STATE_Display = StateNo_1FP;
+					STATE_Display = StateNo_1FP;//40
 				}
 				if(ufreq>=1){
-				ufreq-=1;
+					ufreq-=1;
+					freq=ufreq/10.0;
+					halftime = 250/freq;
 				}
-				freq=ufreq/10.0;
-				halftime = 250/freq;
+				if(ufreq==0){
+					Hz = 1;
+					freq=0;
+					halftime=0;
+				}
+
+
 				break;
 			case 'x':
 				count =0;
 				if(Mode==1){
-				STATE_Display = StateMenuNo_1;}
+				STATE_Display = StateMenuNo_1;}//20
 				else if(Mode==2){
-				STATE_Display = StateMenuNo_2;}
+				STATE_Display = StateMenuNo_2;}//300
+				else if(Mode==3){
+				STATE_Display = StateMenuNo_3;}//500
 				break;
 			default:
 				count+=1;
 				if(count==2){
 					count = 0;
-					STATE_Display = StateNo_1FP;
+					STATE_Display = StateNo_1FP;//40
 				}
 			}break;
-		case StateNo_1VP:
-			sprintf(TxDataBuffer,"Voltage\r\n[h]:high\r\n[l]:low\r\n[x]:back\r\n");
+		case StateNo_1VP://60
+			sprintf(TxDataBuffer,"Voltage\r\n[h]:high\r\n[l]:low\r\n[x]:x\r\n");
 			HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
-			STATE_Display = StateNo_1V;
+			STATE_Display = StateNo_1V;//70
 			break;
-			case StateNo_1V:
+			case StateNo_1V://70
 				switch(inputchar){
 				case -1:
 					break;
 				case 'h':
 					count = 0;
-					STATE_Display = StateVhp;
+					STATE_Display = StateVhp;//80
 					break;
 				case 'l':
 					count = 0;
-					STATE_Display = StateVlp;
+					STATE_Display = StateVlp;//100
 					break;
 				case 'x':
 					count =0;
 					if(Mode==1){
-					STATE_Display = StateMenuNo_1;}
+					STATE_Display = StateMenuNo_1;}//30
 					else if(Mode==2){
-					STATE_Display = StateMenuNo_2;}
+					STATE_Display = StateMenuNo_2;}//300
+					else if(Mode==3){
+					STATE_Display = StateMenuNo_3;}//500
 					break;
 				default:
 					count+=1;
 					if(count==2){
 						count = 0;
-						STATE_Display = StateNo_1VP;}
+						STATE_Display = StateNo_1VP;}//60
 				}break;
-				case StateVhp:
-					sprintf(TxDataBuffer,"Vhigh\r\n[+]:+\r\n[-]:-\r\n[x]:back\r\n");
+				case StateVhp://80
+					sprintf(TxDataBuffer,"Vhigh\r\n[+]:+\r\n[-]:-\r\n[x]:x\r\n");
 					HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
-					STATE_Display = StateVh;
+					STATE_Display = StateVh;//90
 					break;
-				case StateVh:
+				case StateVh://90
 					switch(inputchar)
 					{
 						case -1:
@@ -340,7 +358,7 @@ int main(void)
 							if(count==2)
 							{
 								count = 0;
-								STATE_Display = StateVhp;
+								STATE_Display = StateVhp;//80
 							}
 							Vhigh+=0.1;
 							if(Vhigh>=3.3)
@@ -355,7 +373,7 @@ int main(void)
 							if(count==2)
 							{
 								count = 0;
-								STATE_Display = StateVhp;
+								STATE_Display = StateVhp;//80
 							}
 								Vhigh-=0.1;
 							if(Vhigh<=0.08)
@@ -375,22 +393,22 @@ int main(void)
 							break;
 						case 'x':
 							count =0;
-							STATE_Display = StateNo_1VP;
+							STATE_Display = StateNo_1VP;//60
 							break;
 						default:
 							count+=1;
 							if(count==2)
 							{
 								count = 0;
-								STATE_Display = StateVhp;
+								STATE_Display = StateVhp;//80
 							}
 					}break;
-					case StateVlp:
-						sprintf(TxDataBuffer,"Vlow\r\n[+]:+\r\n[-]:-\r\n[x]:back\r\n");
+					case StateVlp://100
+						sprintf(TxDataBuffer,"Vlow\r\n[+]:+\r\n[-]:-\r\n[x]:x\r\n");
 						HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
-						STATE_Display = StateVl;
+						STATE_Display = StateVl;//110
 						break;
-					case StateVl:
+					case StateVl://110
 						switch(inputchar)
 						{
 							case -1:
@@ -400,7 +418,7 @@ int main(void)
 								if(count==2)
 								{
 									count = 0;
-									STATE_Display = StateVlp;
+									STATE_Display = StateVlp;//100
 								}
 								Vlow+=0.1;
 								if(Vlow>=3.18)
@@ -423,7 +441,7 @@ int main(void)
 								if(count==2)
 								{
 									count = 0;
-									STATE_Display = StateVlp;
+									STATE_Display = StateVlp;//100
 								}
 									Vlow-=0.1;
 								if(Vlow<=0.08)
@@ -435,24 +453,24 @@ int main(void)
 								break;
 							case 'x':
 								count =0;
-								STATE_Display = StateNo_1VP;
+								STATE_Display = StateNo_1VP;//60
 								break;
 							default:
 								count+=1;
 								if(count==2)
 								{
 									count = 0;
-									STATE_Display = StateVlp;
+									STATE_Display = StateVlp;//60
 								}
 						}break;
 
 
-				case StateNo_1SP:
-					sprintf(TxDataBuffer,"slope\r\n[+]:+\r\n[-]:-\r\n[x]:back\r\n");
+				case StateNo_1SP://200
+					sprintf(TxDataBuffer,"slope\r\n[+]:+\r\n[-]:-\r\n[x]:x\r\n");
 					HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
-					STATE_Display = StateNo_1S;
+					STATE_Display = StateNo_1S;//210
 					break;
-					case StateNo_1S:
+					case StateNo_1S://210
 						switch(inputchar){
 						case -1:
 							break;
@@ -461,7 +479,7 @@ int main(void)
 							if(count==2)
 							{
 								count = 0;
-								STATE_Display = StateNo_1SP;
+								STATE_Display = StateNo_1SP;//200
 							}
 							if(m==-1){
 								m=1;
@@ -475,7 +493,7 @@ int main(void)
 							if(count==2)
 							{
 								count = 0;
-								STATE_Display = StateNo_1SP;
+								STATE_Display = StateNo_1SP;//200
 							}
 							if(m==1){
 								m=-1;
@@ -486,50 +504,126 @@ int main(void)
 							break;
 						case 'x':
 							count =0;
-							STATE_Display = StateMenuNo_1;
+							STATE_Display = StateMenuNo_1;//20
 							break;
 						default:
 							count+=1;
 							if(count==2)
 							{
 								count = 0;
-								STATE_Display = StateNo_1SP;
+								STATE_Display = StateNo_1SP;//200
 							}
 						}break;
-						case StateMenuNo_2:
-							  sprintf(TxDataBuffer,"sine wave\r\n[f]:frequency\r\n[v]:Vhigh,Vlow\r\n[x]:back\r\n");
+						case StateMenuNo_2://300
+							  sprintf(TxDataBuffer,"sine\r\n[f]:freq\r\n[v]:Vhigh,Vlow\r\n[x]:x\r\n");
 							  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
-							  STATE_Display = StateNo_2;
+							  STATE_Display = StateNo_2;//310
 							  break;
-						case StateNo_2:
+						case StateNo_2://310
 							switch(inputchar){
 							case -1:
 								break;
 							case 'f':
 								count = 0;
-								STATE_Display = StateNo_1FP;
+								STATE_Display = StateNo_1FP;//40
 								break;
 							case 'v':
 								count = 0;
-								STATE_Display = StateNo_1VP;
+								STATE_Display = StateNo_1VP;//60
 								break;
 							case 'x':
 								count =0;
-								STATE_Display = StateDisplay_start;
+								STATE_Display = StateDisplay_start;//0
 								break;
 							default:
 								count+=1;
 								if(count==2){
 									count = 0;
-									STATE_Display = StateMenuNo_2;
+									STATE_Display = StateMenuNo_2;//310
 								}
 							}break;
+							case StateMenuNo_3://500
+								  sprintf(TxDataBuffer,"square\r\n[f]:freq\r\n[v]:Vhigh,Vlow\r\n[d]:duty\r\n[x]:x\r\n");
+								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+								  STATE_Display = StateNo_3;//510
+								  break;
+							case StateNo_3://510
+								switch(inputchar){
+								case -1:
+									break;
+								case 'f':
+									count = 0;
+									STATE_Display = StateNo_1FP;//40
+									break;
+								case 'v':
+									count = 0;
+									STATE_Display = StateNo_1VP;//60
+									break;
+								case 'd':
+									count = 0;
+									STATE_Display = StateDutyP;
+									break;
+								case 'x':
+									count =0;
+									STATE_Display = StateDisplay_start;//0
+									break;
+								default:
+									count+=1;
+									if(count==2){
+										count = 0;
+										STATE_Display = StateMenuNo_3;//510
+									}
+								}break;
+								case StateDutyP://520
+									  sprintf(TxDataBuffer,"Duty cycle\r\n[+]:+\r\n[-]:-\r\n[x]:x\r\n");
+									  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+									  STATE_Display = StateDuty;//510
+									  break;
+								case StateDuty://510
+									switch(inputchar){
+									case -1:
+										break;
+									case '+':
+										count+=1;
+										if(count>=2){
+											count=0;
+											STATE_Display = StateDutyP;
+										}
+										if(duty<=99){
+										duty+=1;}
+										break;
+									case '-':
+										count+=1;
+										if(count>=2){
+											count=0;
+											STATE_Display = StateDutyP;
+										}
+										if(duty>=1){
+											duty-=1;
+										}
+										break;
+									case 'x':
+										count =0;
+										STATE_Display = StateMenuNo_3;//0
+										break;
+									default:
+										count+=1;
+										if(count==2){
+											count = 0;
+											STATE_Display = StateDutyP;//510
+										}
+									}break;
+
 
 		}
 		if (micros() - timestamp > halftime*((4096.0)/(Vhighr-Vlowr)))
 		{
 			timestamp = micros();
-			if(Mode==1&ufreq>=1&m==-1)
+			if(Hz==1)
+			{
+				dataOut=(Vhighr+Vlowr)/2;
+			}
+			if((Mode==1)&(ufreq>=1)&(m==-1))
 			{
 				dataOut+=m;
 				if(dataOut<=Vlowr)
@@ -539,38 +633,35 @@ int main(void)
 			}
 			if(Mode==1&ufreq>=1&m==1)
 			{
-				dataOut+=m;
+				dataOut+=1;
 				if(dataOut>=Vhighr)
 				{
 					dataOut = (dataOut%Vhighr) + Vlowr;
 				}
 			}
-			if(Mode==1&ufreq==0)
-			{
-				dataOut=(Vhighr+Vlowr)/2;
-			}
 			if(Mode==2&ufreq>=1){
-				sintime+=4096*m*x/(y*freq*(Vhighr-Vlowr));
+				sintime+=4096/(4096*freq*(Vhighr-Vlowr));
 				angle = 2*M_PI*freq*sintime;
 				dataOut=((Vhighr-Vlowr)/2)*sin(angle)+((Vhighr+Vlowr)/2);
 			}
-//			if(Mode==2){
-//				if(dataOut==(Vhighr+Vlowr)/2){
-//				if(count==0)
-//				{
-//					sinstart = micros();
-//				}
-//				if(count==2)
-//				{
-//					sinstop = micros();
-//					count = 0;
-//					sintime = sinstop-sinstart;
-//				}
-//				count+=1;
-//				}
-//				angle=2*M_PI*freq*sintime;
-//				dataOut=((Vhighr-Vlowr)/2)*sin(angle)+((Vhighr+Vlowr)/2);
-//			}
+			if(Mode==3&Hz==0){
+				dcount+=1;
+				if(dcount<duty*(0.965-(freq*0.005))*4096.0/(100.0*y)){
+					dataOut=Vhighr;
+				}
+				if(dcount>=duty*(0.965-(freq*0.005))*4096/(100.0*y))
+				{
+					if(duty<100){
+					dataOut=Vlowr;
+					if(dcount>x*(0.965-(freq*0.005))*4096/(y)){
+						dcount=0;}
+					if(duty==100){
+						count=0;
+					}
+					}
+				}
+
+			}
 			if (hspi3.State == HAL_SPI_STATE_READY
 					&& HAL_GPIO_ReadPin(SPI_SS_GPIO_Port, SPI_SS_Pin)
 							== GPIO_PIN_SET)
