@@ -78,6 +78,7 @@ uint16_t sinstart = 0;
 uint16_t sinstop = 0;
 uint16_t Mode = 0;
 uint16_t Hz = 0;
+float time = 0;
 uint16_t duty = 50;
 uint16_t on = 1;
 float x = 1;
@@ -616,7 +617,13 @@ int main(void)
 
 
 		}
-		if (micros() - timestamp > halftime*((4096.0)/(Vhighr-Vlowr)))
+		if(Mode==1|Mode==2){
+			time =  halftime*((4096.0)/(Vhighr-Vlowr));
+		}
+		if(Mode==3){
+			time = halftime;
+		}
+		if (micros() - timestamp > time)
 		{
 			timestamp = micros();
 			if(Hz==1)
@@ -646,21 +653,20 @@ int main(void)
 			}
 			if(Mode==3&Hz==0){
 				dcount+=1;
-				if(dcount<duty*(0.965-(freq*0.005))*4096.0/(100.0*y)){
+				if(dcount<duty*4096.0/(100.0*y)){
 					dataOut=Vhighr;
 				}
-				if(dcount>=duty*(0.965-(freq*0.005))*4096/(100.0*y))
+				if(dcount>=duty*4096/(100.0*y))
 				{
 					if(duty<100){
 					dataOut=Vlowr;
-					if(dcount>x*(0.965-(freq*0.005))*4096/(y)){
+					if(dcount>x*4096/(y)){
 						dcount=0;}
 					if(duty==100){
 						count=0;
 					}
 					}
 				}
-
 			}
 			if (hspi3.State == HAL_SPI_STATE_READY
 					&& HAL_GPIO_ReadPin(SPI_SS_GPIO_Port, SPI_SS_Pin)
