@@ -19,7 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include "math.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -51,10 +51,33 @@ TIM_HandleTypeDef htim11;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+char TxDataBuffer[32] =
+{ 0 };
+char RxDataBuffer[32] =
+{ 0 };
 uint16_t ADCin = 0;
 uint64_t _micro = 0;
+float Vlow = 0;
 uint16_t dataOut = 0;
-	uint8_t DACConfig = 0b0011;
+float halftime = 250;
+uint16_t STATE_Display = 0;
+float Vhigh = 3.3;
+uint16_t Vhighr = 4096;
+uint16_t Vlowr = 0;
+float m = 1;
+float angle = 0;
+uint16_t statem[2] = {};
+float freq = 1;
+uint16_t ufreq = 10;
+uint16_t count = 0;
+float sintime = 1.5/(2*M_PI*4096);
+uint16_t m2 = 0;
+uint8_t DACConfig = 0b0011;
+uint16_t sinstart = 0;
+uint16_t sinstop = 0;
+uint16_t Mode = 0;
+float x = 1;
+float y= 4000;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,6 +89,8 @@ static void MX_ADC1_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
+void UARTRecieveAndResponsePolling();
+int16_t UARTRecieveIT();
 /* USER CODE BEGIN PFP */
 void MCP4922SetOutput(uint8_t Config, uint16_t DACOutput);
 uint64_t micros();
@@ -116,18 +141,436 @@ int main(void)
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &ADCin, 1);
 
 	HAL_GPIO_WritePin(LOAD_GPIO_Port, LOAD_Pin, GPIO_PIN_RESET);
+	enum State_Display{
+		StateDisplay_start =0,
+			  StateMode = 10,
+			  StateMenuNo_1 = 20,
+			  StateNo_1 = 30,
+			  StateNo_1FP = 40,
+			  StateNo_1F = 50,
+			  StateNo_1VP = 60,
+			  StateNo_1V = 70,
+			  StateVhp = 80,
+			  StateVh = 90,
+			  StateVlp = 100,
+			  StateVl = 110,
+			  StateNo_1SP = 200,
+			  StateNo_1S = 210,
+			  StateMenuNo_2 = 300,
+			  StateNo_2 = 310,
+			  StateMenuNo_3 = 500,
+			  StateNo_3 = 510
+	};
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1)
 	{
+		if(m==1){
+			m2=1;
+		}
+		if(m==-1){
+			m2=2;
+		}
+		statem[0] = m2;
 		static uint64_t timestamp = 0;
-		if (micros() - timestamp > 100)
+		HAL_UART_Receive_IT(&huart2,  (uint8_t*)RxDataBuffer, 32);
+		int16_t inputchar = UARTRecieveIT();
+		if(inputchar!=-1)
+		{
+			sprintf(TxDataBuffer, "In:[%c]\r\n", inputchar);
+				  	  	HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+		}
+		switch(STATE_Display){
+		case StateDisplay_start://0
+			sprintf(TxDataBuffer, "Mode.\r\n[1]:sawtooth\r\n[2]:sine wave\r\n[3]:square wave\r\n");
+			HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+		  	STATE_Display = StateMode;
+		  	break;
+		case StateMode:
+			switch(inputchar){
+			case -1:
+				break;
+			case '1':
+				count = 0;
+				STATE_Display = StateMenuNo_1;
+				Mode = 1;
+				break;
+			case '2':
+				count = 0;
+				STATE_Display = StateMenuNo_2;
+				Mode = 2;
+				break;
+			case '3':
+				count = 0;
+				STATE_Display = StateMenuNo_3;
+				Mode = 3;
+				break;
+			default:
+				  count+=1;
+				  if(count==2)
+				  {
+					  count=0;
+					  STATE_Display = StateDisplay_start;
+				  }
+			}
+			break;
+		case StateMenuNo_1:
+			  sprintf(TxDataBuffer,"sawtooth\r\n[f]:frequency\r\n[v]:Vhigh,Vlow\r\n[s]:slope\r\n[x]:back\r\n");
+			  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+			  STATE_Display = StateNo_1;
+			  break;
+		case StateNo_1:
+			switch(inputchar){
+			case -1:
+				break;
+			case 'f':
+				count = 0;
+				STATE_Display = StateNo_1FP;
+				break;
+			case 'v':
+				count = 0;
+				STATE_Display = StateNo_1VP;
+				break;
+			case 's':
+				count = 0;
+				STATE_Display = StateNo_1SP;
+				break;
+			case 'x':
+				count =0;
+				STATE_Display = StateDisplay_start;
+				break;
+			default:
+				count+=1;
+				if(count==2){
+					count = 0;
+					STATE_Display = StateMenuNo_1;
+				}
+			}break;
+		case StateNo_1FP:
+			  sprintf(TxDataBuffer,"frequency\r\n[+]:+0.1Hz\r\n[-]:-0.1Hz\r\n[x]:back\r\n");
+			  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+			  STATE_Display = StateNo_1F;
+			  break;
+		case StateNo_1F:
+					switch(inputchar){
+					case -1:
+						break;
+			case '+':
+				count+=1;
+				if(count==2){
+					count = 0;
+					STATE_Display = StateNo_1FP;
+				}
+				if(ufreq<=99){
+				ufreq+=1;
+				}
+				freq = ufreq/10.0;
+				halftime =  250/freq;
+				break;
+			case '-':
+				count+=1;
+				if(count==2){
+					count = 0;
+					STATE_Display = StateNo_1FP;
+				}
+				if(ufreq>=1){
+				ufreq-=1;
+				}
+				freq=ufreq/10.0;
+				halftime = 250/freq;
+				break;
+			case 'x':
+				count =0;
+				if(Mode==1){
+				STATE_Display = StateMenuNo_1;}
+				else if(Mode==2){
+				STATE_Display = StateMenuNo_2;}
+				break;
+			default:
+				count+=1;
+				if(count==2){
+					count = 0;
+					STATE_Display = StateNo_1FP;
+				}
+			}break;
+		case StateNo_1VP:
+			sprintf(TxDataBuffer,"Voltage\r\n[h]:high\r\n[l]:low\r\n[x]:back\r\n");
+			HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+			STATE_Display = StateNo_1V;
+			break;
+			case StateNo_1V:
+				switch(inputchar){
+				case -1:
+					break;
+				case 'h':
+					count = 0;
+					STATE_Display = StateVhp;
+					break;
+				case 'l':
+					count = 0;
+					STATE_Display = StateVlp;
+					break;
+				case 'x':
+					count =0;
+					if(Mode==1){
+					STATE_Display = StateMenuNo_1;}
+					else if(Mode==2){
+					STATE_Display = StateMenuNo_2;}
+					break;
+				default:
+					count+=1;
+					if(count==2){
+						count = 0;
+						STATE_Display = StateNo_1VP;}
+				}break;
+				case StateVhp:
+					sprintf(TxDataBuffer,"Vhigh\r\n[+]:+\r\n[-]:-\r\n[x]:back\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+					STATE_Display = StateVh;
+					break;
+				case StateVh:
+					switch(inputchar)
+					{
+						case -1:
+							break;
+						case '+':
+							count+=1;
+							if(count==2)
+							{
+								count = 0;
+								STATE_Display = StateVhp;
+							}
+							Vhigh+=0.1;
+							if(Vhigh>=3.3)
+							{
+								Vhigh=3.3;
+							}
+							Vhighr = Vhigh*4096/3.3;
+							Vlowr = Vlow*4096/3.3;
+							break;
+						case '-':
+							count+=1;
+							if(count==2)
+							{
+								count = 0;
+								STATE_Display = StateVhp;
+							}
+								Vhigh-=0.1;
+							if(Vhigh<=0.08)
+							{
+								Vhigh=0.1;
+							}
+							if(Vhigh-0.001<=Vlow&Vlow!=0)
+							{
+								Vlow=Vhigh-0.1;
+							}
+							if(Vhigh-0.001<=Vlow&Vlow==0)
+							{
+								Vhigh+=0.1;
+							}
+							Vhighr = Vhigh*4096/3.3;
+							Vlowr = Vlow*4096/3.3;
+							break;
+						case 'x':
+							count =0;
+							STATE_Display = StateNo_1VP;
+							break;
+						default:
+							count+=1;
+							if(count==2)
+							{
+								count = 0;
+								STATE_Display = StateVhp;
+							}
+					}break;
+					case StateVlp:
+						sprintf(TxDataBuffer,"Vlow\r\n[+]:+\r\n[-]:-\r\n[x]:back\r\n");
+						HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+						STATE_Display = StateVl;
+						break;
+					case StateVl:
+						switch(inputchar)
+						{
+							case -1:
+								break;
+							case '+':
+								count+=1;
+								if(count==2)
+								{
+									count = 0;
+									STATE_Display = StateVlp;
+								}
+								Vlow+=0.1;
+								if(Vlow>=3.18)
+								{
+									Vlow=3.2;
+								}
+								if(Vlow>=Vhigh-0.001&Vhigh<=3.3)
+								{
+									Vhigh=Vlow+0.1;
+								}
+								if(Vlow>=Vhigh-0.001&Vhigh==3.3)
+								{
+									Vlow-=0.1;
+								}
+								Vhighr = Vhigh*4096/3.3;
+								Vlowr = Vlow*4096/3.3;
+								break;
+							case '-':
+								count+=1;
+								if(count==2)
+								{
+									count = 0;
+									STATE_Display = StateVlp;
+								}
+									Vlow-=0.1;
+								if(Vlow<=0.08)
+								{
+									Vlow=0;
+								}
+								Vhighr = Vhigh*4096/3.3;
+								Vlowr = Vlow*4096/3.3;
+								break;
+							case 'x':
+								count =0;
+								STATE_Display = StateNo_1VP;
+								break;
+							default:
+								count+=1;
+								if(count==2)
+								{
+									count = 0;
+									STATE_Display = StateVlp;
+								}
+						}break;
+
+
+				case StateNo_1SP:
+					sprintf(TxDataBuffer,"slope\r\n[+]:+\r\n[-]:-\r\n[x]:back\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+					STATE_Display = StateNo_1S;
+					break;
+					case StateNo_1S:
+						switch(inputchar){
+						case -1:
+							break;
+						case '+':
+							count += 1;
+							if(count==2)
+							{
+								count = 0;
+								STATE_Display = StateNo_1SP;
+							}
+							if(m==-1){
+								m=1;
+							}
+							if(statem[0]==1&statem[1]==2){
+								dataOut=Vlowr;
+							}
+							break;
+						case '-':
+							count += 1;
+							if(count==2)
+							{
+								count = 0;
+								STATE_Display = StateNo_1SP;
+							}
+							if(m==1){
+								m=-1;
+							}
+							if(statem[0]==2&statem[1]==1){
+								dataOut=Vhighr;
+							}
+							break;
+						case 'x':
+							count =0;
+							STATE_Display = StateMenuNo_1;
+							break;
+						default:
+							count+=1;
+							if(count==2)
+							{
+								count = 0;
+								STATE_Display = StateNo_1SP;
+							}
+						}break;
+						case StateMenuNo_2:
+							  sprintf(TxDataBuffer,"sine wave\r\n[f]:frequency\r\n[v]:Vhigh,Vlow\r\n[x]:back\r\n");
+							  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer),1000);
+							  STATE_Display = StateNo_2;
+							  break;
+						case StateNo_2:
+							switch(inputchar){
+							case -1:
+								break;
+							case 'f':
+								count = 0;
+								STATE_Display = StateNo_1FP;
+								break;
+							case 'v':
+								count = 0;
+								STATE_Display = StateNo_1VP;
+								break;
+							case 'x':
+								count =0;
+								STATE_Display = StateDisplay_start;
+								break;
+							default:
+								count+=1;
+								if(count==2){
+									count = 0;
+									STATE_Display = StateMenuNo_2;
+								}
+							}break;
+
+		}
+		if (micros() - timestamp > halftime*((4096.0)/(Vhighr-Vlowr)))
 		{
 			timestamp = micros();
-			dataOut++;
-			dataOut %= 4096;
+			if(Mode==1&ufreq>=1&m==-1)
+			{
+				dataOut+=m;
+				if(dataOut<=Vlowr)
+				{
+					dataOut+=Vhighr-Vlowr;
+				}
+			}
+			if(Mode==1&ufreq>=1&m==1)
+			{
+				dataOut+=m;
+				if(dataOut>=Vhighr)
+				{
+					dataOut = (dataOut%Vhighr) + Vlowr;
+				}
+			}
+			if(Mode==1&ufreq==0)
+			{
+				dataOut=(Vhighr+Vlowr)/2;
+			}
+			if(Mode==2&ufreq>=1){
+				sintime+=4096*m*x/(y*freq*(Vhighr-Vlowr));
+				angle = 2*M_PI*freq*sintime;
+				dataOut=((Vhighr-Vlowr)/2)*sin(angle)+((Vhighr+Vlowr)/2);
+			}
+//			if(Mode==2){
+//				if(dataOut==(Vhighr+Vlowr)/2){
+//				if(count==0)
+//				{
+//					sinstart = micros();
+//				}
+//				if(count==2)
+//				{
+//					sinstop = micros();
+//					count = 0;
+//					sintime = sinstop-sinstart;
+//				}
+//				count+=1;
+//				}
+//				angle=2*M_PI*freq*sintime;
+//				dataOut=((Vhighr-Vlowr)/2)*sin(angle)+((Vhighr+Vlowr)/2);
+//			}
 			if (hspi3.State == HAL_SPI_STATE_READY
 					&& HAL_GPIO_ReadPin(SPI_SS_GPIO_Port, SPI_SS_Pin)
 							== GPIO_PIN_SET)
@@ -135,6 +578,7 @@ int main(void)
 				MCP4922SetOutput(DACConfig, dataOut);
 			}
 		}
+		statem[1]=statem[0];
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -468,6 +912,36 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void UARTRecieveAndResponsePolling()
+{
+	char Recieve[32]={0};
+
+	HAL_UART_Receive(&huart2, (uint8_t*)Recieve, 4, 1000);
+
+	sprintf(TxDataBuffer, "Received:[%s]\r\n", Recieve);
+	HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+
+}
+
+
+int16_t UARTRecieveIT()
+{
+	static uint32_t dataPos =0;
+	int16_t data=-1;
+	if(huart2.RxXferSize - huart2.RxXferCount!=dataPos)
+	{
+		data=RxDataBuffer[dataPos];
+		dataPos= (dataPos+1)%huart2.RxXferSize;
+	}
+	return data;
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	sprintf(TxDataBuffer, "Received:[%s]\r\n", RxDataBuffer);
+	HAL_UART_Transmit_IT(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer));
+}
 void MCP4922SetOutput(uint8_t Config, uint16_t DACOutput)
 {
 	uint32_t OutputPacket = (DACOutput & 0x0fff) | ((Config & 0xf) << 12);
