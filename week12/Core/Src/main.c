@@ -62,7 +62,7 @@ uint16_t dataOut = 0;
 float halftime = 250;
 uint16_t STATE_Display = 0;
 float Vhigh = 3.3;
-uint16_t Vhighr = 4096;
+uint16_t Vhighr = 4095;
 uint16_t Vlowr = 0;
 float m = 1;
 float angle = 0;
@@ -366,8 +366,8 @@ int main(void)
 							{
 								Vhigh=3.3;
 							}
-							Vhighr = Vhigh*4096/3.3;
-							Vlowr = Vlow*4096/3.3;
+							Vhighr = Vhigh*4095/3.3;
+							Vlowr = Vlow*4095/3.3;
 							break;
 						case '-':
 							count+=1;
@@ -389,8 +389,8 @@ int main(void)
 							{
 								Vhigh+=0.1;
 							}
-							Vhighr = Vhigh*4096/3.3;
-							Vlowr = Vlow*4096/3.3;
+							Vhighr = Vhigh*4095/3.3;
+							Vlowr = Vlow*4095/3.3;
 							break;
 						case 'x':
 							count =0;
@@ -434,8 +434,8 @@ int main(void)
 								{
 									Vlow-=0.1;
 								}
-								Vhighr = Vhigh*4096/3.3;
-								Vlowr = Vlow*4096/3.3;
+								Vhighr = Vhigh*4095/3.3;
+								Vlowr = Vlow*4095/3.3;
 								break;
 							case '-':
 								count+=1;
@@ -449,8 +449,8 @@ int main(void)
 								{
 									Vlow=0;
 								}
-								Vhighr = Vhigh*4096/3.3;
-								Vlowr = Vlow*4096/3.3;
+								Vhighr = Vhigh*4095/3.3;
+								Vlowr = Vlow*4095/3.3;
 								break;
 							case 'x':
 								count =0;
@@ -618,7 +618,7 @@ int main(void)
 
 		}
 		if(Mode==1|Mode==2){
-			time =  halftime*((4096.0)/(Vhighr-Vlowr));
+			time =  halftime*((4095.0)/(Vhighr-Vlowr));
 		}
 		if(Mode==3){
 			time = halftime;
