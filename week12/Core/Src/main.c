@@ -76,6 +76,8 @@ uint8_t DACConfig = 0b0011;
 uint16_t Mode = 0;
 uint16_t Hz = 0;
 float time = 0;
+float sum = 0;
+float sum3 = 0;
 uint16_t duty = 50;
 uint16_t on = 1;
 float x = 1;
@@ -615,13 +617,15 @@ int main(void)
 
 		}
 		if(Mode==1){
-			time =  halftime*((4095.0)/(Vhighr-Vlowr));
+//			time =  halftime*((4095.0)/(Vhighr-Vlowr));
+			time = 100;
 		}
 		if(Mode==2){
 			time = 100;
 		}
 		if(Mode==3){
-			time = halftime;
+//			time = halftime;
+			time = 100;
 		}
 		if (micros() - timestamp > time)
 		{
@@ -630,43 +634,72 @@ int main(void)
 			{
 				dataOut=(Vhighr+Vlowr)/2;
 			}
-			if((Mode==1)&(ufreq>=1)&(m==-1))
-			{
-				dataOut-=1;
-				if(dataOut<=Vlowr)
-				{
-					dataOut+=Vhighr-Vlowr;
+			if(Mode==1&ufreq>=1){
+				sum+=0.4095*m*freq*(Vhighr-Vlowr)/4095.0;
+				if(sum>=Vhighr&m==1){
+					sum=Vlowr;
 				}
-			}
-			if(Mode==1&ufreq>=1&m==1)
-			{
-				dataOut+=1;
-				if(dataOut>=Vhighr)
-				{
-					dataOut = (dataOut%Vhighr) + Vlowr;
+				if(sum<=Vlowr&m==-1){
+					sum=Vhighr-Vlowr;
 				}
+				dataOut=sum;
 			}
-			if(Mode==2&ufreq>=1){
+			if(Mode==3&Hz==0){
+				sum3+=0.4095*freq;
+				if(sum3>=4095){
+					sum3=0;
+				}
+				if(duty==100){
+					dataOut=Vhighr;
+				}
+				if(duty==0){
+					dataOut=Vlowr;
+				}
+				if(sum3<=duty*4095.0/100.0&duty>0&duty<100){
+					dataOut=Vhighr;
+				}
+				if(sum3>duty*4095.0/100.0&duty>0&duty<100){
+					dataOut=Vlowr;
+				}
+
+			}
+//			if((Mode==1)&(ufreq>=1)&(m==-1))
+//			{
+//				dataOut-=1;
+//				if(dataOut<=Vlowr)
+//				{
+//					dataOut+=Vhighr-Vlowr;
+//				}
+//			}
+//			if(Mode==1&ufreq>=1&m==1)
+//			{
+//				dataOut+=1;
+//				if(dataOut>=Vhighr)
+//				{
+//					dataOut = (dataOut%Vhighr) + Vlowr;
+//				}
+//			}
+			if(Mode==2&Hz==0){
 				angle+=0.0001;
 				dataOut=((Vhighr-Vlowr)/2)*sin(2*M_PI*freq*angle)+((Vhighr+Vlowr)/2);
 			}
-			if(Mode==3&Hz==0){
-				dcount+=1;
-				if(dcount<duty*4096.0/(100.0*y)){
-					dataOut=Vhighr;
-				}
-				if(dcount>=duty*4096/(100.0*y))
-				{
-					if(duty<100){
-					dataOut=Vlowr;
-					if(dcount>x*4096/(y)){
-						dcount=0;}
-					if(duty==100){
-						count=0;
-					}
-					}
-				}
-			}
+//			if(Mode==3&Hz==0){
+//				dcount+=1;
+//				if(dcount<duty*4096.0/(100.0*y)){
+//					dataOut=Vhighr;
+//				}
+//				if(dcount>=duty*4096/(100.0*y))
+//				{
+//					if(duty<100){
+//					dataOut=Vlowr;
+//					if(dcount>x*4096/(y)){
+//						dcount=0;}
+//					if(duty==100){
+//						count=0;
+//					}
+//					}
+//				}
+//			}
 			if (hspi3.State == HAL_SPI_STATE_READY
 					&& HAL_GPIO_ReadPin(SPI_SS_GPIO_Port, SPI_SS_Pin)
 							== GPIO_PIN_SET)
