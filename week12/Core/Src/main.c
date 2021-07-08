@@ -618,7 +618,7 @@ int main(void)
 			time =  halftime*((4095.0)/(Vhighr-Vlowr));
 		}
 		if(Mode==2){
-			time = 10000;
+			time = 100;
 		}
 		if(Mode==3){
 			time = halftime;
@@ -647,7 +647,7 @@ int main(void)
 				}
 			}
 			if(Mode==2&ufreq>=1){
-				angle+=0.01;
+				angle+=0.0001;
 				dataOut=((Vhighr-Vlowr)/2)*sin(2*M_PI*freq*angle)+((Vhighr+Vlowr)/2);
 			}
 			if(Mode==3&Hz==0){
