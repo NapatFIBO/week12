@@ -71,11 +71,8 @@ float freq = 1;
 uint16_t ufreq = 10;
 uint16_t count = 0;
 uint16_t dcount = 0;
-float sintime = 1.5/(2*M_PI*4096);
 uint16_t m2 = 0;
 uint8_t DACConfig = 0b0011;
-uint16_t sinstart = 0;
-uint16_t sinstop = 0;
 uint16_t Mode = 0;
 uint16_t Hz = 0;
 float time = 0;
@@ -617,8 +614,11 @@ int main(void)
 
 
 		}
-		if(Mode==1|Mode==2){
+		if(Mode==1){
 			time =  halftime*((4095.0)/(Vhighr-Vlowr));
+		}
+		if(Mode==2){
+			time = 10000;
 		}
 		if(Mode==3){
 			time = halftime;
@@ -632,7 +632,7 @@ int main(void)
 			}
 			if((Mode==1)&(ufreq>=1)&(m==-1))
 			{
-				dataOut+=m;
+				dataOut-=1;
 				if(dataOut<=Vlowr)
 				{
 					dataOut+=Vhighr-Vlowr;
@@ -647,9 +647,8 @@ int main(void)
 				}
 			}
 			if(Mode==2&ufreq>=1){
-				sintime+=4096/(4096*freq*(Vhighr-Vlowr));
-				angle = 2*M_PI*freq*sintime;
-				dataOut=((Vhighr-Vlowr)/2)*sin(angle)+((Vhighr+Vlowr)/2);
+				angle+=0.01;
+				dataOut=((Vhighr-Vlowr)/2)*sin(2*M_PI*freq*angle)+((Vhighr+Vlowr)/2);
 			}
 			if(Mode==3&Hz==0){
 				dcount+=1;
